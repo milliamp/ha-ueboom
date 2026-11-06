@@ -6,9 +6,11 @@ Power and battery for **Ultimate Ears BOOM / MEGABOOM** speakers over Bluetooth 
 |---|---|
 | `switch.<name>_power` | Wake the speaker / put it in standby |
 | `sensor.<name>_battery` | Battery % |
+| `binary_sensor.<name>_audio_connected` | On while the speaker has an audio (A2DP) connection to some host |
 
 State comes passively from the speaker's advertisements, so the speaker isn't polled and its battery isn't drained.
 When you switch it on, the speaker connects its audio to the Bluetooth adapter that HA used. Pair it with that host first.
+If the speaker is already on but has lost its audio connection, **turn on** asks the host's BlueZ to reconnect it.
 
 Built on [pyueboom](https://github.com/milliamp/pyueboom). Tested with a BOOM 3 (firmware 1.1.0.24) on a local
 BlueZ adapter. ESPHome Bluetooth proxies should work too, through `bleak`, but haven't been tested.

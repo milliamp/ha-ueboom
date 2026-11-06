@@ -12,7 +12,7 @@ from homeassistant.components.bluetooth.passive_update_coordinator import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from pyueboom import UEBoom, UEBoomError, UEBoomState
+from pyueboom import UEBoom, UEBoomError, UEBoomState, bluez
 
 from .const import DOMAIN, PENDING_POWER_TIMEOUT
 
@@ -24,8 +24,18 @@ type UEBoomConfigEntry = ConfigEntry[UEBoomCoordinator]
 class UEBoomCoordinator(PassiveBluetoothDataUpdateCoordinator):
     """Track a speaker's power state and battery from its advertisements."""
 
-    def __init__(self, hass: HomeAssistant, entry: UEBoomConfigEntry, boom: UEBoom) -> None:
-        """Initialize the coordinator."""
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: UEBoomConfigEntry,
+        boom: UEBoom,
+        adapter: str | None = None,
+    ) -> None:
+        """Initialize the coordinator.
+
+        ``adapter`` is the local BlueZ adapter (``hciN``) that sees the speaker,
+        or None when it's only reachable through a proxy.
+        """
         super().__init__(
             hass,
             _LOGGER,
@@ -35,6 +45,7 @@ class UEBoomCoordinator(PassiveBluetoothDataUpdateCoordinator):
         )
         self.entry = entry
         self.boom = boom
+        self.adapter = adapter
         self.gatt_state: UEBoomState | None = None
         self._pending_on: bool | None = None
         self._pending_since = 0.0
@@ -70,9 +81,16 @@ class UEBoomCoordinator(PassiveBluetoothDataUpdateCoordinator):
             _LOGGER.debug("%s: could not read device info: %s", self.boom.address, err)
 
     async def async_set_power(self, on: bool) -> None:
-        """Send a power command to the speaker."""
+        """Send a power command to the speaker.
+
+        Turning on a speaker that is already on but has no audio connection
+        (e.g. after the host's audio server restarted) asks this host's BlueZ
+        to reconnect the audio instead; the speaker ignores a power-on then.
+        """
         try:
-            if on:
+            if on and self.boom.is_on and self.boom.audio_connected is False and self.adapter:
+                await bluez.connect_audio(self.boom.address, self.adapter)
+            elif on:
                 await self.boom.power_on()
             else:
                 await self.boom.power_off()

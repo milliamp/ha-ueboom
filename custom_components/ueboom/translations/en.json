@@ -23,6 +23,11 @@
       "power": {
         "name": "Power"
       }
+    },
+    "binary_sensor": {
+      "audio_connected": {
+        "name": "Audio connected"
+      }
     }
   },
   "exceptions": {

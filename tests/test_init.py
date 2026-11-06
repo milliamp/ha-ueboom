@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -106,3 +106,48 @@ async def test_power_failure_raises(
         )
     assert err.value.translation_key == "power_failed"
     assert hass.states.get(SWITCH).state == STATE_ON
+
+
+AUDIO = "binary_sensor.my_boom_audio_connected"
+ADV_ON_NOT_CONNECTED = bytes.fromhex("011064002002000000000000c0288d00112228")
+
+
+async def test_audio_connected_sensor(
+    hass: HomeAssistant, config_entry: MockConfigEntry, mock_gatt: dict[str, AsyncMock]
+) -> None:
+    """The connectivity sensor follows the advertisement's audio bit."""
+    await _setup(hass, config_entry)
+    assert hass.states.get(AUDIO).state == STATE_ON
+
+    inject_bluetooth_service_info(hass, make_service_info(manufacturer_data=ADV_ON_NOT_CONNECTED))
+    await hass.async_block_till_done()
+    assert hass.states.get(AUDIO).state == STATE_OFF
+    assert hass.states.get(SWITCH).state == STATE_ON
+
+
+async def test_turn_on_reconnects_audio_when_already_on(
+    hass: HomeAssistant, config_entry: MockConfigEntry, mock_gatt: dict[str, AsyncMock]
+) -> None:
+    """On but not connected: ask BlueZ to reconnect instead of a power-on."""
+    await _setup(hass, config_entry)
+    inject_bluetooth_service_info(hass, make_service_info(manufacturer_data=ADV_ON_NOT_CONNECTED))
+    await hass.async_block_till_done()
+
+    with patch("pyueboom.bluez.connect_audio", AsyncMock()) as connect:
+        await hass.services.async_call("switch", "turn_on", {ATTR_ENTITY_ID: SWITCH}, blocking=True)
+    connect.assert_awaited_once_with(ADDRESS, "hci0")
+    mock_gatt["power_on"].assert_not_awaited()
+
+
+async def test_turn_on_from_standby_powers_on(
+    hass: HomeAssistant, config_entry: MockConfigEntry, mock_gatt: dict[str, AsyncMock]
+) -> None:
+    """From standby it's a BLE power-on."""
+    await _setup(hass, config_entry)
+    inject_bluetooth_service_info(hass, make_service_info(manufacturer_data=ADV_STANDBY))
+    await hass.async_block_till_done()
+
+    with patch("pyueboom.bluez.connect_audio", AsyncMock()) as connect:
+        await hass.services.async_call("switch", "turn_on", {ATTR_ENTITY_ID: SWITCH}, blocking=True)
+    mock_gatt["power_on"].assert_awaited_once()
+    connect.assert_not_awaited()

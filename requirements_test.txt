@@ -10,4 +10,4 @@ dbus-fast==2.44.3
 habluetooth==5.6.4
 aiousbwatcher==1.1.1
 pyserial==3.5
-https://github.com/milliamp/pyueboom/releases/download/v0.1.0/pyueboom-0.1.0-py3-none-any.whl#pyueboom==0.1.0
+https://github.com/milliamp/pyueboom/releases/download/v0.2.0/pyueboom-0.2.0-py3-none-any.whl#pyueboom==0.2.0

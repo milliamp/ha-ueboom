@@ -12,7 +12,7 @@ from pyueboom.transport import bluez_adapter
 from .const import DOMAIN
 from .coordinator import UEBoomConfigEntry, UEBoomCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: UEBoomConfigEntry) -> bool:
@@ -29,7 +29,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: UEBoomConfigEntry) -> bo
     # When a local BlueZ adapter sees the speaker, connect from that adapter and
     # ask the speaker to connect its audio to it. Through a proxy, leave the MAC
     # as zeros so the speaker reconnects to whatever host it used last.
-    local = bluez_adapter(service_info.device) is not None
+    adapter = bluez_adapter(service_info.device)
+    local = adapter is not None
     boom = UEBoom(
         service_info.device,
         host_mac=service_info.source if local else None,
@@ -37,7 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: UEBoomConfigEntry) -> bo
     )
     boom.set_ble_device_and_advertisement_data(service_info.device, service_info.advertisement)
 
-    coordinator = UEBoomCoordinator(hass, entry, boom)
+    coordinator = UEBoomCoordinator(hass, entry, boom, adapter)
     entry.runtime_data = coordinator
     await coordinator.async_refresh_device_info()
 
