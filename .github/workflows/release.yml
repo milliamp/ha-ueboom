@@ -1,0 +1,23 @@
+name: Release
+
+# Push a tag like v0.1.0 (matching manifest.json "version") to publish a GitHub
+# release, which HACS offers as an update.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag matches manifest version
+        run: |
+          v=$(python3 -c "import json;print(json.load(open('custom_components/ueboom/manifest.json'))['version'])")
+          test "v$v" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != v$v"; exit 1; }
+      - run: gh release create "$GITHUB_REF_NAME" --generate-notes --title "$GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ github.token }}
